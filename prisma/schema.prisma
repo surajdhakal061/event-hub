@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EventStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum DeliveryChannel {
+  EMAIL
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  apps App[]
+
+  @@map("users")
+}
+
+model App {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKeys   ApiKey[]
+  templates Template[]
+  events    Event[]
+
+  @@index([userId])
+  @@map("apps")
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  appId      String
+  keyHash    String    @unique
+  keyPrefix  String
+  keyLast4   String
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId])
+  @@index([appId, isActive])
+  @@map("api_keys")
+}
+
+model Template {
+  id        String          @id @default(uuid())
+  appId      String
+  name      String
+  channel   DeliveryChannel @default(EMAIL)
+  subject   String
+  body      String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  app    App     @relation(fields: [appId], references: [id], onDelete: Cascade)
+  events Event[]
+
+  @@unique([appId, name])
+  @@index([appId])
+  @@map("templates")
+}
+
+model Event {
+  id            String      @id @default(uuid())
+  appId          String
+  templateId    String?
+  eventName     String
+  recipient     String
+  payload       Json
+  status        EventStatus @default(PENDING)
+  failureReason String?
+  processedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  app          App           @relation(fields: [appId], references: [id], onDelete: Cascade)
+  template     Template?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  deliveryLogs DeliveryLog[]
+
+  @@index([appId])
+  @@index([appId, status])
+  @@index([status, createdAt])
+  @@map("events")
+}
+
+model DeliveryLog {
+  id               String          @id @default(uuid())
+  eventId          String
+  channel          DeliveryChannel @default(EMAIL)
+  recipient        String
+  success          Boolean
+  providerResponse String?
+  errorMessage     String?
+  createdAt        DateTime        @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([success])
+  @@map("delivery_logs")
+}
