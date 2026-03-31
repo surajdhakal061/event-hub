@@ -25,9 +25,15 @@ export class AnalyticsService {
       pendingCount,
       sentCount,
       failedCount,
+      deliveryEligibleTotal,
+      deliveryEligiblePending,
+      deliveryEligibleSent,
+      deliveryEligibleFailed,
+      triggerOnlyTotal,
       totalDeliveries,
       successfulDeliveries,
       failedDeliveries,
+      activeSubscriptions,
     ] = await Promise.all([
       this.prisma.event.count({ where }),
       this.prisma.event.count({
@@ -38,6 +44,33 @@ export class AnalyticsService {
       }),
       this.prisma.event.count({
         where: { ...where, status: EventStatus.FAILED },
+      }),
+      this.prisma.event.count({
+        where: { ...where, recipient: { not: null } },
+      }),
+      this.prisma.event.count({
+        where: {
+          ...where,
+          recipient: { not: null },
+          status: EventStatus.PENDING,
+        },
+      }),
+      this.prisma.event.count({
+        where: {
+          ...where,
+          recipient: { not: null },
+          status: EventStatus.SENT,
+        },
+      }),
+      this.prisma.event.count({
+        where: {
+          ...where,
+          recipient: { not: null },
+          status: EventStatus.FAILED,
+        },
+      }),
+      this.prisma.event.count({
+        where: { ...where, recipient: null },
       }),
       this.prisma.deliveryLog.count({
         where: {
@@ -56,6 +89,12 @@ export class AnalyticsService {
           success: false,
         },
       }),
+      this.prisma.eventSubscription.count({
+        where: {
+          appId: { in: appIds },
+          isActive: true,
+        },
+      }),
     ]);
 
     return {
@@ -67,11 +106,27 @@ export class AnalyticsService {
         pending: pendingCount,
         sent: sentCount,
         failed: failedCount,
+        deliveryEligible: {
+          total: deliveryEligibleTotal,
+          pending: deliveryEligiblePending,
+          sent: deliveryEligibleSent,
+          failed: deliveryEligibleFailed,
+        },
+        triggerOnly: {
+          total: triggerOnlyTotal,
+        },
       },
       deliveries: {
         total: totalDeliveries,
         sent: successfulDeliveries,
         failed: failedDeliveries,
+        successRate:
+          totalDeliveries === 0
+            ? 0
+            : Number((successfulDeliveries / totalDeliveries).toFixed(4)),
+      },
+      subscriptions: {
+        active: activeSubscriptions,
       },
     };
   }

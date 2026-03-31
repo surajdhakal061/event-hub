@@ -62,7 +62,13 @@ export class EventsService {
     }
 
     // Notify subscribers of this event type
-    void this.notifySubscribers(event.id, dto.eventName, appId, templateId, dto);
+    void this.notifySubscribers(
+      event.id,
+      dto.eventName,
+      appId,
+      templateId,
+      dto,
+    );
 
     return {
       id: event.id,
@@ -207,10 +213,11 @@ export class EventsService {
   ) {
     try {
       // Subscription-based notifications are scoped to the publishing app.
-      const subscribers = await this.subscriptionsService.findSubscribersForAppEvent(
-        publisherAppId,
-        eventName,
-      );
+      const subscribers =
+        await this.subscriptionsService.findSubscribersForAppEvent(
+          publisherAppId,
+          eventName,
+        );
 
       if (subscribers.length === 0) {
         return;
@@ -239,8 +246,9 @@ export class EventsService {
           });
 
           // Enqueue for processing
-          const enqueued =
-            await this.eventsProcessorService.enqueueEvent(subscriberEvent.id);
+          const enqueued = await this.eventsProcessorService.enqueueEvent(
+            subscriberEvent.id,
+          );
           if (!enqueued) {
             setTimeout(() => {
               void this.processSingleEvent(subscriberEvent.id);

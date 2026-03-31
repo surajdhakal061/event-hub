@@ -9,7 +9,12 @@ import { EventsProcessorService } from './events-processor.service';
 import { EventsService } from './events.service';
 
 @Module({
-  imports: [TemplatesModule, DeliveriesModule, AppsModule, forwardRef(() => SubscriptionsModule)],
+  imports: [
+    TemplatesModule,
+    DeliveriesModule,
+    AppsModule,
+    forwardRef(() => SubscriptionsModule),
+  ],
   controllers: [EventsController],
   providers: [EventsService, EventsProcessorService, ApiKeyGuard],
   exports: [EventsService],

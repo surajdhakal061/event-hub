@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
@@ -10,15 +14,13 @@ export class SubscriptionsService {
 
   async create(appId: string, dto: CreateSubscriptionDto) {
     try {
-      const existing = await this.prisma.eventSubscription.findFirst(
-        {
-          where : {
-            appId,
-            eventName: dto.eventName,
-            recipientEmail: dto.recipientEmail,
-          }
-        }
-      )
+      const existing = await this.prisma.eventSubscription.findFirst({
+        where: {
+          appId,
+          eventName: dto.eventName,
+          recipientEmail: dto.recipientEmail,
+        },
+      });
       if (existing && existing.isActive) {
         throw new ConflictException('Subscription already exists');
       }
@@ -26,7 +28,9 @@ export class SubscriptionsService {
         where: { email: dto.recipientEmail },
       });
       if (!emailUser) {
-        throw new NotFoundException('Recipient email does not correspond to a registered user');
+        throw new NotFoundException(
+          'Recipient email does not correspond to a registered user',
+        );
       }
       return await this.prisma.eventSubscription.create({
         data: {

@@ -24,6 +24,16 @@ export class EventsProcessorService implements OnModuleInit, OnModuleDestroy {
   private consumer: Consumer | null = null;
   private active = false;
 
+  private readonly retryAttempts = Number(
+    process.env.KAFKA_CONSUMER_RETRY_ATTEMPTS ?? 3,
+  );
+  private readonly retryBaseDelayMs = Number(
+    process.env.KAFKA_CONSUMER_RETRY_BASE_DELAY_MS ?? 500,
+  );
+  private readonly retryMaxDelayMs = Number(
+    process.env.KAFKA_CONSUMER_RETRY_MAX_DELAY_MS ?? 5000,
+  );
+
   constructor(private readonly moduleRef: ModuleRef) {}
 
   async onModuleInit() {
@@ -51,7 +61,6 @@ export class EventsProcessorService implements OnModuleInit, OnModuleDestroy {
 
       await this.consumer.run({
         eachMessage: async ({ message }) => {
-            console.log('Received Kafka message:', { value: message.value?.toString() });
           const raw = message.value?.toString();
           if (!raw) {
             return;
@@ -70,10 +79,15 @@ export class EventsProcessorService implements OnModuleInit, OnModuleDestroy {
             return;
           }
 
+          const eventId = parsed.eventId;
+
           const eventService = this.moduleRef.get(EventsService, {
             strict: false,
           });
-          await eventService.processSingleEvent(parsed.eventId);
+
+          await this.processWithRetry(() => eventService.processSingleEvent(eventId), {
+            eventId,
+          });
         },
       });
 
@@ -106,5 +120,59 @@ export class EventsProcessorService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     await this.consumer?.disconnect();
     await this.producer?.disconnect();
+  }
+
+  private async processWithRetry(
+    fn: () => Promise<void>,
+    context: { eventId: string },
+  ) {
+    const attempts =
+      Number.isFinite(this.retryAttempts) && this.retryAttempts > 0
+        ? Math.floor(this.retryAttempts)
+        : 1;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        await fn();
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (attempt >= attempts) {
+          this.logger.error(
+            `Kafka handler failed after ${attempt} attempt(s). eventId=${context.eventId}. error=${message}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+          // Swallow the error so the consumer stays alive and the offset can be committed.
+          return;
+        }
+
+        const delayMs = this.getRetryDelayMs(attempt);
+        this.logger.warn(
+          `Kafka handler failed (attempt ${attempt}/${attempts}). Retrying in ${delayMs}ms. eventId=${context.eventId}. error=${message}`,
+        );
+        await this.sleep(delayMs);
+      }
+    }
+  }
+
+  private getRetryDelayMs(attempt: number) {
+    const base =
+      Number.isFinite(this.retryBaseDelayMs) && this.retryBaseDelayMs >= 0
+        ? this.retryBaseDelayMs
+        : 0;
+    const max =
+      Number.isFinite(this.retryMaxDelayMs) && this.retryMaxDelayMs >= 0
+        ? this.retryMaxDelayMs
+        : base;
+
+    const exp = base * Math.pow(2, Math.max(0, attempt - 1));
+    const unclamped = Math.min(exp, max);
+    const jitter = unclamped * 0.2 * Math.random();
+    return Math.max(0, Math.floor(unclamped + jitter));
+  }
+
+  private sleep(ms: number) {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms));
   }
 }
