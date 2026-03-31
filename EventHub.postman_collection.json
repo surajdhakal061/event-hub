@@ -319,7 +319,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"eventName\": \"{{eventName}}\",\n  \"webhookUrl\": \"{{webhookUrl}}\"\n}"
+              "raw": "{\n  \"eventName\": \"{{eventName}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/subscriptions?appId={{appId}}",
@@ -706,10 +706,6 @@
     {
       "key": "eventName",
       "value": "user.welcome"
-    },
-    {
-      "key": "webhookUrl",
-      "value": "https://webhook.site/xxx-xxx-xxx"
     },
     {
       "key": "subscriptionId",

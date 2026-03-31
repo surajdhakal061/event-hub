@@ -11,8 +11,9 @@ export class PublishEventDto {
   @IsNotEmpty()
   eventName: string;
 
+  @IsOptional()
   @IsEmail()
-  recipient: string;
+  recipient?: string;
 
   @IsObject()
   payload: Record<string, unknown>;

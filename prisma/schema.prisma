@@ -88,7 +88,7 @@ model Event {
   appId          String
   templateId    String?
   eventName     String
-  recipient     String
+  recipient     String?
   payload       Json
   status        EventStatus @default(PENDING)
   failureReason String?
@@ -136,7 +136,7 @@ model EventSubscription {
 
   app App @relation(fields: [appId], references: [id], onDelete: Cascade)
 
-  @@unique([appId, eventName])
+  @@unique([appId, eventName, recipientEmail])
   @@index([appId])
   @@index([eventName])
   @@index([appId, isActive])

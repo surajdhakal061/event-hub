@@ -37,25 +37,32 @@ export class EventsService {
       templateId = template.id;
     }
 
+    const hasDirectRecipient = Boolean(dto.recipient);
+
     const event = await this.prisma.event.create({
       data: {
         appId,
         templateId,
         eventName: dto.eventName,
-        recipient: dto.recipient,
+        recipient: dto.recipient ?? null,
         payload: dto.payload as Prisma.InputJsonValue,
+        ...(hasDirectRecipient
+          ? {}
+          : { status: EventStatus.SENT, processedAt: new Date() }),
       },
     });
 
-    const enqueued = await this.eventsProcessorService.enqueueEvent(event.id);
-    if (!enqueued) {
-      setTimeout(() => {
-        void this.processSingleEvent(event.id);
-      }, 0);
+    if (hasDirectRecipient) {
+      const enqueued = await this.eventsProcessorService.enqueueEvent(event.id);
+      if (!enqueued) {
+        setTimeout(() => {
+          void this.processSingleEvent(event.id);
+        }, 0);
+      }
     }
 
     // Notify subscribers of this event type
-    void this.notifySubscribers(event.id, dto.eventName, appId, dto);
+    void this.notifySubscribers(event.id, dto.eventName, appId, templateId, dto);
 
     return {
       id: event.id,
@@ -108,6 +115,19 @@ export class EventsService {
     });
 
     if (!event || event.status !== EventStatus.PENDING) {
+      return;
+    }
+
+    // Subscription-based publish events may intentionally have no direct recipient.
+    if (!event.recipient) {
+      await this.prisma.event.update({
+        where: { id: event.id },
+        data: {
+          status: EventStatus.SENT,
+          processedAt: new Date(),
+          failureReason: null,
+        },
+      });
       return;
     }
 
@@ -182,12 +202,15 @@ export class EventsService {
     sourceEventId: string,
     eventName: string,
     publisherAppId: string,
+    templateId: string | null,
     dto: PublishEventDto,
   ) {
     try {
-      // Find all apps subscribed to this event type (excluding the publisher)
-      const subscribers =
-        await this.subscriptionsService.findSubscribersForEvent(eventName);
+      // Subscription-based notifications are scoped to the publishing app.
+      const subscribers = await this.subscriptionsService.findSubscribersForAppEvent(
+        publisherAppId,
+        eventName,
+      );
 
       if (subscribers.length === 0) {
         return;
@@ -195,27 +218,22 @@ export class EventsService {
 
       // Create events for each subscriber
       for (const subscription of subscribers) {
-        if (subscription.appId === publisherAppId) {
-          // Don't Notify the publisher
-          continue;
-        }
-
         if (!subscription.recipientEmail) {
           continue;
         }
-
         try {
-          // For now, we create a notification event
+          // Lets Create a new Notification Event for each Subscriber
           const subscriberEvent = await this.prisma.event.create({
             data: {
               appId: subscription.appId,
-              eventName: `${eventName}:subscription`,
+              templateId,
+              eventName,
               recipient: subscription.recipientEmail,
               payload: {
+                ...(dto.payload ?? {}),
                 sourceEventId,
                 publisherAppId,
                 originalEventName: eventName,
-                payload: dto.payload,
               } as Prisma.InputJsonValue,
             },
           });

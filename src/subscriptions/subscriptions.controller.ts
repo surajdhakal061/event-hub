@@ -29,12 +29,11 @@ export class SubscriptionsController {
   @Get()
   async list(
     @CurrentUser() user: JwtUser,
-    @Query('appId') appId: string,
     @Query() query: ListSubscriptionsQueryDto,
   ) {
     // Verify user owns the app
-    await this.appsService.ensureOwnedByUser(user.sub, appId);
-    return this.subscriptionsService.list(appId, query);
+    await this.appsService.ensureOwnedByUser(user.sub, query.appId);
+    return this.subscriptionsService.list(query.appId, query);
   }
 
   @Delete(':subscriptionId')
