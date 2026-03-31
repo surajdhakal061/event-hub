@@ -12,6 +12,7 @@ import { TemplatesService } from '../templates/templates.service';
 import { ListEventsQueryDto } from './dto/list-events-query.dto';
 import { EventsProcessorService } from './events-processor.service';
 import { PublishEventDto } from './dto/publish-event.dto';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 @Injectable()
 export class EventsService {
@@ -22,6 +23,7 @@ export class EventsService {
     private readonly deliveryChannelService: DeliveryChannelService,
     private readonly appsService: AppsService,
     private readonly eventsProcessorService: EventsProcessorService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   async publish(appId: string, dto: PublishEventDto) {
@@ -51,6 +53,9 @@ export class EventsService {
         void this.processSingleEvent(event.id);
       }, 0);
     }
+
+    // Notify subscribers of this event type
+    void this.notifySubscribers(event.id, dto.eventName, appId, dto);
 
     return {
       id: event.id,
@@ -170,6 +175,69 @@ export class EventsService {
       });
 
       throw new InternalServerErrorException('Failed to process event');
+    }
+  }
+
+  private async notifySubscribers(
+    sourceEventId: string,
+    eventName: string,
+    publisherAppId: string,
+    dto: PublishEventDto,
+  ) {
+    try {
+      // Find all apps subscribed to this event type (excluding the publisher)
+      const subscribers =
+        await this.subscriptionsService.findSubscribersForEvent(eventName);
+
+      if (subscribers.length === 0) {
+        return;
+      }
+
+      // Create events for each subscriber
+      for (const subscription of subscribers) {
+        if (subscription.appId === publisherAppId) {
+          // Don't notify the publisher
+          continue;
+        }
+
+        try {
+          // If webhook URL is provided, we could handle it differently
+          // For now, we create a notification event
+          const subscriberEvent = await this.prisma.event.create({
+            data: {
+              appId: subscription.appId,
+              eventName: `${eventName}:subscription`,
+              recipient: dto.recipient,
+              payload: {
+                sourceEventId,
+                publisherAppId,
+                originalEventName: eventName,
+                payload: dto.payload,
+                webhookUrl: subscription.webhookUrl,
+              } as Prisma.InputJsonValue,
+            },
+          });
+
+          // Enqueue for processing
+          const enqueued =
+            await this.eventsProcessorService.enqueueEvent(subscriberEvent.id);
+          if (!enqueued) {
+            setTimeout(() => {
+              void this.processSingleEvent(subscriberEvent.id);
+            }, 0);
+          }
+        } catch (error) {
+          console.error(
+            `Failed to notify subscriber ${subscription.appId} for event ${eventName}:`,
+            error,
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Error notifying subscribers for event ${eventName}:`,
+        error,
+      );
     }
   }
 

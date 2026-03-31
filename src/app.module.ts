@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
 import { EventsModule } from './events/events.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { TemplatesModule } from './templates/templates.module';
 import { UsersModule } from './users/users.module';
 
@@ -19,6 +20,7 @@ import { UsersModule } from './users/users.module';
     TemplatesModule,
     DeliveriesModule,
     EventsModule,
+    SubscriptionsModule,
     AnalyticsModule,
   ],
   controllers: [AppController],

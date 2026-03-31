@@ -37,10 +37,11 @@ model App {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiKeys   ApiKey[]
-  templates Template[]
-  events    Event[]
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKeys       ApiKey[]
+  templates     Template[]
+  events        Event[]
+  subscriptions EventSubscription[]
 
   @@index([userId])
   @@map("apps")
@@ -102,6 +103,7 @@ model Event {
   @@index([appId])
   @@index([appId, status])
   @@index([status, createdAt])
+  @@index([eventName])
   @@map("events")
 }
 
@@ -120,4 +122,22 @@ model DeliveryLog {
   @@index([eventId])
   @@index([success])
   @@map("delivery_logs")
+}
+
+model EventSubscription {
+  id        String   @id @default(uuid())
+  appId     String
+  eventName String
+  webhookUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, eventName])
+  @@index([appId])
+  @@index([eventName])
+  @@index([appId, isActive])
+  @@map("event_subscriptions")
 }

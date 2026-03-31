@@ -51,6 +51,7 @@ export class EventsProcessorService implements OnModuleInit, OnModuleDestroy {
 
       await this.consumer.run({
         eachMessage: async ({ message }) => {
+            console.log('Received Kafka message:', { value: message.value?.toString() });
           const raw = message.value?.toString();
           if (!raw) {
             return;
@@ -69,10 +70,10 @@ export class EventsProcessorService implements OnModuleInit, OnModuleDestroy {
             return;
           }
 
-          const eventsService = this.moduleRef.get(EventsService, {
+          const eventService = this.moduleRef.get(EventsService, {
             strict: false,
           });
-          await eventsService.processSingleEvent(parsed.eventId);
+          await eventService.processSingleEvent(parsed.eventId);
         },
       });
 

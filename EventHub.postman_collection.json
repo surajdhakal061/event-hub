@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "5f8b8476-d5d7-4c43-9efe-b2136196b9c4",
     "name": "EventHub API",
-    "description": "Postman collection for EventHub multi-tenant notification system.\n\nSuggested run order:\n1) Auth -> Register or Login\n2) Apps -> Create App\n3) Apps -> Generate API Key\n4) Templates -> Create Template\n5) Events -> Publish Event\n6) Events/Deliveries/Analytics -> Read results",
+    "description": "Postman collection for EventHub multi-tenant event streaming and notification system with subscriptions.\n\nSuggested run order:\n1) Auth -> Register or Login\n2) Apps -> Create App (x2 for publisher and subscriber)\n3) Apps -> Generate API Key\n4) Subscriptions -> Create Subscription (subscribe app to event types)\n5) Templates -> Create Template\n6) Events -> Publish Event\n7) Events/Deliveries/Analytics -> View results and delivery tracking",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -275,6 +275,130 @@
               "path": [
                 "apps",
                 "{{appId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Subscriptions",
+      "item": [
+        {
+          "name": "Create Subscription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 or 200', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "const json = pm.response.json();",
+                  "if (json && json.id) {",
+                  "  pm.collectionVariables.set('subscriptionId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventName\": \"{{eventName}}\",\n  \"webhookUrl\": \"{{webhookUrl}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions?appId={{appId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions"
+              ],
+              "query": [
+                {
+                  "key": "appId",
+                  "value": "{{appId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions?appId={{appId}}&page={{page}}&limit={{limit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions"
+              ],
+              "query": [
+                {
+                  "key": "appId",
+                  "value": "{{appId}}"
+                },
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Subscription",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/subscriptions/{{subscriptionId}}?appId={{appId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "subscriptions",
+                "{{subscriptionId}}"
+              ],
+              "query": [
+                {
+                  "key": "appId",
+                  "value": "{{appId}}"
+                }
               ]
             }
           },
@@ -578,6 +702,18 @@
     {
       "key": "deliverySuccess",
       "value": "true"
+    },
+    {
+      "key": "eventName",
+      "value": "user.welcome"
+    },
+    {
+      "key": "webhookUrl",
+      "value": "https://webhook.site/xxx-xxx-xxx"
+    },
+    {
+      "key": "subscriptionId",
+      "value": ""
     }
   ]
 }
