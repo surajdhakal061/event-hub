@@ -129,6 +129,7 @@ model EventSubscription {
   appId     String
   eventName String
   webhookUrl String?
+  recipientEmail String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

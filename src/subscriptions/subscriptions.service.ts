@@ -12,7 +12,7 @@ export class SubscriptionsService {
       data: {
         appId,
         eventName: dto.eventName,
-        webhookUrl: dto.webhookUrl,
+        recipientEmail: dto.recipientEmail,
       },
     });
 

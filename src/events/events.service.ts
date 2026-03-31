@@ -196,24 +196,26 @@ export class EventsService {
       // Create events for each subscriber
       for (const subscription of subscribers) {
         if (subscription.appId === publisherAppId) {
-          // Don't notify the publisher
+          // Don't Notify the publisher
+          continue;
+        }
+
+        if (!subscription.recipientEmail) {
           continue;
         }
 
         try {
-          // If webhook URL is provided, we could handle it differently
           // For now, we create a notification event
           const subscriberEvent = await this.prisma.event.create({
             data: {
               appId: subscription.appId,
               eventName: `${eventName}:subscription`,
-              recipient: dto.recipient,
+              recipient: subscription.recipientEmail,
               payload: {
                 sourceEventId,
                 publisherAppId,
                 originalEventName: eventName,
                 payload: dto.payload,
-                webhookUrl: subscription.webhookUrl,
               } as Prisma.InputJsonValue,
             },
           });

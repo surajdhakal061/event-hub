@@ -10,7 +10,7 @@ export class ListSubscriptionsQueryDto {
 
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
   @Min(1)
+  @IsInt()
   limit: number = 10;
 }
